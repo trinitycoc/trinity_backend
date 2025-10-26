@@ -1,0 +1,24 @@
+{
+  "name": "trinity-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Backend server for Trinity Clash of Clans website",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": ["clash-of-clans", "api", "express"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "clashofclans.js": "^3.3.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
+
