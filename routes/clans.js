@@ -4,7 +4,8 @@ import {
   getMultipleClans, 
   searchClans,
   getCurrentWar,
-  getCWLGroup 
+  getCWLGroup,
+  getWarLog
 } from '../services/clashOfClansService.js'
 
 const router = express.Router()
@@ -89,6 +90,21 @@ router.get('/:clanTag/cwl', async (req, res) => {
     console.error('Error fetching CWL data:', error)
     res.status(500).json({ 
       error: 'Failed to fetch CWL data', 
+      message: error.message 
+    })
+  }
+})
+
+// Get war log for a clan
+router.get('/:clanTag/warlog', async (req, res) => {
+  try {
+    const { clanTag } = req.params
+    const warLog = await getWarLog(clanTag)
+    res.json(warLog)
+  } catch (error) {
+    console.error('Error fetching war log:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch war log', 
       message: error.message 
     })
   }

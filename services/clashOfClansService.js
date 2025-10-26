@@ -61,6 +61,19 @@ export const getClanDetails = async (clanTag) => {
       large: clan.badge?.large || '',
     }
     
+    // Extract member list with relevant details
+    const memberList = clan.members?.map(member => ({
+      name: member.name,
+      tag: member.tag,
+      role: member.role,
+      expLevel: member.expLevel || 0,
+      townHallLevel: member.townHallLevel || 0,
+      trophies: member.trophies || 0,
+      clanRank: member.clanRank || 0,
+      donations: member.donations || 0,
+      donationsReceived: member.donationsReceived || 0,
+    })) || []
+    
     return {
       tag: clan.tag,
       name: clan.name,
@@ -69,12 +82,14 @@ export const getClanDetails = async (clanTag) => {
       location: clan.location?.name || 'International',
       badgeUrls: badgeUrls,
       clanLevel: clan.level || 0,
+      clanCapitalLevel: clan.clanCapital?.capitalHallLevel || 0,
       clanPoints: clan.points || 0,
       clanVersusPoints: clan.builderBasePoints || 0,
       warWins: clan.warWins || 0,
       warWinStreak: clan.warWinStreak || 0,
       warLeague: clan.warLeague?.name || 'Unranked',
       members: clan.memberCount || 0,
+      memberList: memberList,
       leader: leader ? {
         name: leader.name,
         tag: leader.tag,
@@ -194,6 +209,29 @@ export const getCWLGroup = async (clanTag) => {
     return cwlGroup
   } catch (error) {
     console.error(`Error fetching CWL data for clan ${clanTag}:`, error.message)
+    throw error
+  }
+}
+
+/**
+ * Get clan war log
+ * @param {string} clanTag - Clan tag
+ * @returns {Promise<Array>} War log data
+ */
+export const getWarLog = async (clanTag) => {
+  try {
+    const cocClient = await initializeCoCClient()
+    
+    if (!cocClient) {
+      throw new Error('CoC API client not initialized')
+    }
+
+    const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
+    const warLog = await cocClient.getClanWarLog(formattedTag)
+    
+    return warLog || []
+  } catch (error) {
+    console.error(`Error fetching war log for clan ${clanTag}:`, error.message)
     throw error
   }
 }
