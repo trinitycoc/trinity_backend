@@ -51,22 +51,39 @@ export const getClanDetails = async (clanTag) => {
     
     const clan = await cocClient.getClan(formattedTag)
     
+    // Find the leader from the member list
+    const leader = clan.members?.find(member => member.role === 'leader')
+    
+    // Extract badge URLs - Badge class has small, medium, large properties
+    const badgeUrls = {
+      small: clan.badge?.small || '',
+      medium: clan.badge?.medium || '',
+      large: clan.badge?.large || '',
+    }
+    
     return {
       tag: clan.tag,
       name: clan.name,
       description: clan.description || 'No description available',
       type: clan.type, // open, inviteOnly, closed
       location: clan.location?.name || 'International',
-      badgeUrls: clan.badgeUrls,
-      clanLevel: clan.clanLevel,
-      clanPoints: clan.clanPoints,
-      clanVersusPoints: clan.clanVersusPoints || 0,
+      badgeUrls: badgeUrls,
+      clanLevel: clan.level || 0,
+      clanPoints: clan.points || 0,
+      clanVersusPoints: clan.builderBasePoints || 0,
       warWins: clan.warWins || 0,
       warWinStreak: clan.warWinStreak || 0,
       warLeague: clan.warLeague?.name || 'Unranked',
-      members: Array.isArray(clan.members) ? clan.members.length : (clan.members || 0),
+      members: clan.memberCount || 0,
+      leader: leader ? {
+        name: leader.name,
+        tag: leader.tag,
+        trophies: leader.trophies || 0,
+        townHallLevel: leader.townHallLevel || 0,
+        expLevel: leader.expLevel || 0,
+      } : null,
       requiredTrophies: clan.requiredTrophies || 0,
-      requiredTownHallLevel: clan.requiredTownhallLevel || 1,
+      requiredTownHallLevel: clan.requiredTownHallLevel || 1,
       warFrequency: clan.warFrequency || 'unknown',
       isWarLogPublic: clan.isWarLogPublic || false,
     }
