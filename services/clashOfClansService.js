@@ -78,7 +78,12 @@ export const getClanDetails = async (clanTag) => {
       name: clan.name,
       description: clan.description || 'No description available',
       type: clan.type, // open, inviteOnly, closed
-      location: clan.location?.name || 'International',
+      location: clan.location ? {
+        id: clan.location.id,
+        name: clan.location.name,
+        isCountry: clan.location.isCountry,
+        countryCode: clan.location.countryCode
+      } : null,
       badgeUrls: badgeUrls,
       clanLevel: clan.level || 0,
       clanCapitalLevel: clan.clanCapital?.capitalHallLevel || 0,
@@ -86,7 +91,10 @@ export const getClanDetails = async (clanTag) => {
       clanVersusPoints: clan.builderBasePoints || 0,
       warWins: clan.warWins || 0,
       warWinStreak: clan.warWinStreak || 0,
-      warLeague: clan.warLeague?.name || 'Unranked',
+      warLeague: clan.warLeague ? {
+        id: clan.warLeague.id,
+        name: clan.warLeague.name
+      } : null,
       members: clan.memberCount || 0,
       memberList: memberList,
       leader: leader ? {
@@ -135,33 +143,6 @@ export const getMultipleClans = async (clanTags) => {
     return clans.filter(Boolean)
   } catch (error) {
     console.error('Error fetching multiple clans:', error)
-    throw error
-  }
-}
-
-/**
- * Search for clans by name
- * @param {string} name - Clan name to search
- * @param {Object} options - Search options
- * @returns {Promise<Array<Object>>} Array of matching clans
- */
-export const searchClans = async (name, options = {}) => {
-  try {
-    const cocClient = await initializeCoCClient()
-    
-    if (!cocClient) {
-      throw new Error('CoC API client not initialized')
-    }
-
-    const clans = await cocClient.searchClans({
-      name,
-      limit: options.limit || 10,
-      ...options
-    })
-    
-    return clans
-  } catch (error) {
-    console.error('Error searching clans:', error)
     throw error
   }
 }
@@ -234,29 +215,6 @@ export const getCurrentWar = async (clanTag) => {
     return formattedWar
   } catch (error) {
     console.error(`Error fetching war data for clan ${clanTag}:`, error.message)
-    throw error
-  }
-}
-
-/**
- * Get clan war league group information
- * @param {string} clanTag - Clan tag
- * @returns {Promise<Object>} CWL group data
- */
-export const getCWLGroup = async (clanTag) => {
-  try {
-    const cocClient = await initializeCoCClient()
-    
-    if (!cocClient) {
-      throw new Error('CoC API client not initialized')
-    }
-
-    const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
-    const cwlGroup = await cocClient.getClanWarLeagueGroup(formattedTag)
-    
-    return cwlGroup
-  } catch (error) {
-    console.error(`Error fetching CWL data for clan ${clanTag}:`, error.message)
     throw error
   }
 }

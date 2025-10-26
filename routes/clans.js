@@ -2,9 +2,7 @@ import express from 'express'
 import { 
   getClanDetails, 
   getMultipleClans, 
-  searchClans,
   getCurrentWar,
-  getCWLGroup,
   getWarLog,
   getCapitalRaidSeasons
 } from '../services/clashOfClansService.js'
@@ -49,23 +47,6 @@ router.post('/multiple', async (req, res) => {
   }
 })
 
-// Search clans by name
-router.get('/search/:name', async (req, res) => {
-  try {
-    const { name } = req.params
-    const { limit = 10 } = req.query
-    
-    const clans = await searchClans(name, { limit: parseInt(limit) })
-    res.json(clans)
-  } catch (error) {
-    console.error('Error searching clans:', error)
-    res.status(500).json({ 
-      error: 'Failed to search clans', 
-      message: error.message 
-    })
-  }
-})
-
 // Get current war for a clan
 router.get('/:clanTag/war', async (req, res) => {
   try {
@@ -76,21 +57,6 @@ router.get('/:clanTag/war', async (req, res) => {
     console.error('Error fetching war data:', error)
     res.status(500).json({ 
       error: 'Failed to fetch war data', 
-      message: error.message 
-    })
-  }
-})
-
-// Get CWL group for a clan
-router.get('/:clanTag/cwl', async (req, res) => {
-  try {
-    const { clanTag } = req.params
-    const cwlGroup = await getCWLGroup(clanTag)
-    res.json(cwlGroup)
-  } catch (error) {
-    console.error('Error fetching CWL data:', error)
-    res.status(500).json({ 
-      error: 'Failed to fetch CWL data', 
       message: error.message 
     })
   }
