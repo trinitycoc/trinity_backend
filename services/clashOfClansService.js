@@ -183,7 +183,60 @@ export const getCurrentWar = async (clanTag) => {
     const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
     const war = await cocClient.getClanWar(formattedTag)
     
-    return war
+    console.log('Raw war data state:', war.state)
+    
+    // If not in war, return minimal data
+    if (war.state === 'notInWar') {
+      return {
+        state: 'notInWar'
+      }
+    }
+    
+    // Format the war data to ensure consistent structure
+    // According to clashofclans.js WarClan class documentation:
+    // - badge (not badgeUrls) with small, medium, large properties
+    // - destruction (not destructionPercentage)
+    // - attackCount (not attacks)
+    // - level (not clanLevel)
+    const formattedWar = {
+      state: war.state || 'unknown',
+      teamSize: war.teamSize || 0,
+      preparationStartTime: war.preparationStartTime || null,
+      startTime: war.startTime || null,
+      endTime: war.endTime || null,
+      clan: war.clan ? {
+        tag: war.clan.tag || '',
+        name: war.clan.name || 'Unknown',
+        badgeUrls: {
+          small: war.clan.badge?.small || '',
+          medium: war.clan.badge?.medium || '',
+          large: war.clan.badge?.large || '',
+        },
+        clanLevel: war.clan.level || 0,
+        attacks: war.clan.attackCount || 0,
+        stars: war.clan.stars || 0,
+        destructionPercentage: war.clan.destruction || 0,
+        members: war.clan.members || []
+      } : null,
+      opponent: war.opponent ? {
+        tag: war.opponent.tag || '',
+        name: war.opponent.name || 'Unknown',
+        badgeUrls: {
+          small: war.opponent.badge?.small || '',
+          medium: war.opponent.badge?.medium || '',
+          large: war.opponent.badge?.large || '',
+        },
+        clanLevel: war.opponent.level || 0,
+        attacks: war.opponent.attackCount || 0,
+        stars: war.opponent.stars || 0,
+        destructionPercentage: war.opponent.destruction || 0,
+        members: war.opponent.members || []
+      } : null
+    }
+    
+    console.log('Formatted war data:', JSON.stringify(formattedWar, null, 2))
+    
+    return formattedWar
   } catch (error) {
     console.error(`Error fetching war data for clan ${clanTag}:`, error.message)
     throw error
@@ -229,9 +282,82 @@ export const getWarLog = async (clanTag) => {
     const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
     const warLog = await cocClient.getClanWarLog(formattedTag)
     
-    return warLog || []
+    console.log(`Total wars fetched: ${(warLog || []).length}`)
+    
+    // Filter out friendly wars - only show wars where result exists and is not 'none'
+    // Friendly wars have result as null, undefined, or 'none'
+    const regularWars = (warLog || []).filter(war => {
+      const hasValidResult = war.result && war.result !== 'none' && war.result !== ''
+      if (!hasValidResult) {
+        console.log('Filtering out friendly war:', war.result)
+      }
+      return hasValidResult
+    })
+    
+    console.log(`Regular wars (after filtering): ${regularWars.length}`)
+    
+    // Format war log according to WarLogClan structure
+    // Properties: name, tag, badge, level, stars, destruction, expEarned, attackCount
+    const formattedWarLog = regularWars.map(war => ({
+      result: war.result || 'unknown',
+      endTime: war.endTime || null,
+      teamSize: war.teamSize || 0,
+      clan: war.clan ? {
+        name: war.clan.name || 'Unknown',
+        tag: war.clan.tag || '',
+        badgeUrls: {
+          small: war.clan.badge?.small || '',
+          medium: war.clan.badge?.medium || '',
+          large: war.clan.badge?.large || '',
+        },
+        level: war.clan.level || 0,
+        stars: war.clan.stars || 0,
+        destruction: war.clan.destruction || 0,
+        expEarned: war.clan.expEarned || 0,
+        attackCount: war.clan.attackCount || 0
+      } : null,
+      opponent: war.opponent ? {
+        name: war.opponent.name || 'Unknown',
+        tag: war.opponent.tag || '',
+        badgeUrls: {
+          small: war.opponent.badge?.small || '',
+          medium: war.opponent.badge?.medium || '',
+          large: war.opponent.badge?.large || '',
+        },
+        level: war.opponent.level || 0,
+        stars: war.opponent.stars || 0,
+        destruction: war.opponent.destruction || 0,
+        expEarned: war.opponent.expEarned,
+        attackCount: war.opponent.attackCount
+      } : null
+    }))
+    
+    return formattedWarLog
   } catch (error) {
     console.error(`Error fetching war log for clan ${clanTag}:`, error.message)
+    throw error
+  }
+}
+
+/**
+ * Get capital raid seasons/weekends
+ * @param {string} clanTag - Clan tag
+ * @returns {Promise<Array>} Capital raid seasons data
+ */
+export const getCapitalRaidSeasons = async (clanTag) => {
+  try {
+    const cocClient = await initializeCoCClient()
+    
+    if (!cocClient) {
+      throw new Error('CoC API client not initialized')
+    }
+
+    const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
+    const raidSeasons = await cocClient.getClanCapitalRaidSeasons(formattedTag)
+    
+    return raidSeasons || []
+  } catch (error) {
+    console.error(`Error fetching capital raid seasons for clan ${clanTag}:`, error.message)
     throw error
   }
 }

@@ -5,7 +5,8 @@ import {
   searchClans,
   getCurrentWar,
   getCWLGroup,
-  getWarLog
+  getWarLog,
+  getCapitalRaidSeasons
 } from '../services/clashOfClansService.js'
 
 const router = express.Router()
@@ -105,6 +106,21 @@ router.get('/:clanTag/warlog', async (req, res) => {
     console.error('Error fetching war log:', error)
     res.status(500).json({ 
       error: 'Failed to fetch war log', 
+      message: error.message 
+    })
+  }
+})
+
+// Get capital raid seasons for a clan
+router.get('/:clanTag/capitalraids', async (req, res) => {
+  try {
+    const { clanTag } = req.params
+    const raidSeasons = await getCapitalRaidSeasons(clanTag)
+    res.json(raidSeasons)
+  } catch (error) {
+    console.error('Error fetching capital raid seasons:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch capital raid seasons', 
       message: error.message 
     })
   }
