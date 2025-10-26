@@ -22,7 +22,6 @@ export const initializeCoCClient = async () => {
       
       // Login with email and password
       await client.login({ email, password })
-      console.log('✅ Successfully authenticated with Clash of Clans API')
     } catch (error) {
       console.error('❌ Failed to authenticate with Clash of Clans API:', error.message)
       client = null
@@ -183,8 +182,6 @@ export const getCurrentWar = async (clanTag) => {
     const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
     const war = await cocClient.getClanWar(formattedTag)
     
-    console.log('Raw war data state:', war.state)
-    
     // If not in war, return minimal data
     if (war.state === 'notInWar') {
       return {
@@ -234,8 +231,6 @@ export const getCurrentWar = async (clanTag) => {
       } : null
     }
     
-    console.log('Formatted war data:', JSON.stringify(formattedWar, null, 2))
-    
     return formattedWar
   } catch (error) {
     console.error(`Error fetching war data for clan ${clanTag}:`, error.message)
@@ -282,23 +277,9 @@ export const getWarLog = async (clanTag) => {
     const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
     const warLog = await cocClient.getClanWarLog(formattedTag)
     
-    console.log(`Total wars fetched: ${(warLog || []).length}`)
-    
-    // Filter out friendly wars - only show wars where result exists and is not 'none'
-    // Friendly wars have result as null, undefined, or 'none'
-    const regularWars = (warLog || []).filter(war => {
-      const hasValidResult = war.result && war.result !== 'none' && war.result !== ''
-      if (!hasValidResult) {
-        console.log('Filtering out friendly war:', war.result)
-      }
-      return hasValidResult
-    })
-    
-    console.log(`Regular wars (after filtering): ${regularWars.length}`)
-    
     // Format war log according to WarLogClan structure
     // Properties: name, tag, badge, level, stars, destruction, expEarned, attackCount
-    const formattedWarLog = regularWars.map(war => ({
+    const formattedWarLog = (warLog || []).map(war => ({
       result: war.result || 'unknown',
       endTime: war.endTime || null,
       teamSize: war.teamSize || 0,
