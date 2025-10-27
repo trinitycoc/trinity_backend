@@ -3,6 +3,7 @@ import { cacheService, CACHE_TTL } from './cacheService.js'
 
 // Initialize the Clash of Clans API client
 let client = null
+let clientInitializing = null // Promise to track ongoing initialization
 
 // Rate limiting configuration
 const REQUEST_POOL_SIZE = 5 // Max concurrent requests
@@ -10,6 +11,7 @@ let activeRequests = 0
 
 /**
  * Initialize the CoC API client with email and password
+ * Uses a promise to prevent race conditions during concurrent requests
  */
 export const initializeCoCClient = async () => {
   const email = process.env.COC_EMAIL
@@ -19,22 +21,39 @@ export const initializeCoCClient = async () => {
     throw new Error('COC_EMAIL and COC_PASSWORD must be set in .env file')
   }
 
-  if (!client) {
+  // If client already exists and is logged in, return it
+  if (client) {
+    return client
+  }
+
+  // If initialization is already in progress, wait for it
+  if (clientInitializing) {
+    return await clientInitializing
+  }
+
+  // Start new initialization
+  clientInitializing = (async () => {
     try {
-      client = new Client({ 
-        timeout: 10000 
+      const newClient = new Client({ 
+        timeout: 15000 // Increased timeout for better reliability
       })
       
       // Login with email and password
-      await client.login({ email, password })
+      await newClient.login({ email, password })
+      
+      client = newClient
+      
+      return client
     } catch (error) {
-      console.error('❌ Failed to authenticate with Clash of Clans API:', error.message)
+      console.error('Failed to authenticate with Clash of Clans API:', error.message)
       client = null
       throw error
+    } finally {
+      clientInitializing = null
     }
-  }
+  })()
 
-  return client
+  return await clientInitializing
 }
 
 /**
@@ -146,8 +165,6 @@ export const getMultipleClans = async (clanTags) => {
       return []
     }
 
-    console.log(`📦 Fetching ${validTags.length} clans in batches of ${REQUEST_POOL_SIZE}...`)
-    
     // Process in batches to avoid overwhelming the API
     const results = []
     for (let i = 0; i < validTags.length; i += REQUEST_POOL_SIZE) {
@@ -170,10 +187,7 @@ export const getMultipleClans = async (clanTags) => {
     }
     
     // Remove null values (failed requests)
-    const successfulClans = results.filter(Boolean)
-    console.log(`✅ Successfully fetched ${successfulClans.length}/${validTags.length} clans`)
-    
-    return successfulClans
+    return results.filter(Boolean)
   } catch (error) {
     console.error('Error fetching multiple clans:', error)
     throw error

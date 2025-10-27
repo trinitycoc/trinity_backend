@@ -122,8 +122,6 @@ export async function fetchTrinityClansFromSheet() {
 
     // Cache the result
     cacheService.set(cacheKey, clanTags, CACHE_TTL.GOOGLE_SHEETS)
-
-    console.log(`📊 Fetched ${clanTags.length} Trinity clans from Google Sheets`)
     return clanTags
 
   } catch (error) {
@@ -185,8 +183,6 @@ export async function fetchCWLClansFromSheet() {
 
     // Cache the result
     cacheService.set(cacheKey, clanTags, CACHE_TTL.GOOGLE_SHEETS)
-
-    console.log(`📊 Fetched ${clanTags.length} CWL clans from Google Sheets`)
     return clanTags
 
   } catch (error) {
@@ -251,8 +247,6 @@ export async function fetchCWLClansDetailsFromSheet() {
 
     // Cache the result
     cacheService.set(cacheKey, validClans, CACHE_TTL.GOOGLE_SHEETS)
-
-    console.log(`📊 Fetched ${validClans.length} CWL clans details from Google Sheets`)
     return validClans
 
   } catch (error) {

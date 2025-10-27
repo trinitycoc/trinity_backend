@@ -17,13 +17,7 @@ export const cacheService = {
    * @returns {any} Cached value or undefined
    */
   get: (key) => {
-    const value = cache.get(key)
-    if (value !== undefined) {
-      console.log(`✅ Cache HIT: ${key}`)
-    } else {
-      console.log(`❌ Cache MISS: ${key}`)
-    }
-    return value
+    return cache.get(key)
   },
 
   /**
@@ -34,11 +28,7 @@ export const cacheService = {
    * @returns {boolean} Success status
    */
   set: (key, value, ttl) => {
-    const success = cache.set(key, value, ttl)
-    if (success) {
-      console.log(`💾 Cache SET: ${key} (TTL: ${ttl || 'default'}s)`)
-    }
-    return success
+    return cache.set(key, value, ttl)
   },
 
   /**
@@ -47,9 +37,7 @@ export const cacheService = {
    * @returns {number} Number of deleted entries
    */
   del: (key) => {
-    const count = cache.del(key)
-    console.log(`🗑️  Cache DEL: ${key}`)
-    return count
+    return cache.del(key)
   },
 
   /**
@@ -64,7 +52,6 @@ export const cacheService = {
     
     if (matchingKeys.length > 0) {
       cache.del(matchingKeys)
-      console.log(`🗑️  Cache DEL pattern: ${pattern} (${matchingKeys.length} keys)`)
     }
     
     return matchingKeys.length
@@ -75,7 +62,6 @@ export const cacheService = {
    */
   flush: () => {
     cache.flushAll()
-    console.log('🧹 Cache FLUSHED (all keys deleted)')
   },
 
   /**

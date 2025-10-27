@@ -53,18 +53,25 @@ export const calculateEligibleMembers = (sheetData, memberList) => {
 
 /**
  * Filter clans by capacity logic:
- * - Group by league
- * - Sort by "In Use" value within each league
- * - Only show next clan when previous one is full (eligible >= allowed)
+ * - Group by Google Sheets league
+ * - Sort by "In Use" value within each league (smallest first)
+ * - "Serious" format: ALWAYS show (no capacity check)
+ * - "Lazy" format: Only show next clan when previous "Lazy" clan is full
+ * 
+ * Example: Master 2 with In Use: 4 (Lazy), 5 (Lazy), 6 (Lazy)
+ * - Show clan 4 (always show first)
+ * - Show clan 5 only when clan 4 is full
+ * - Show clan 6 only when clan 5 is full
+ * 
  * @param {Array} clans - Array of clan objects with sheetData
  * @returns {Array} Filtered array of clans to display
  */
 export const filterClansByCapacity = (clans) => {
-  // Group clans by league
+  // Group clans by Google Sheets league
   const clansByLeague = {}
   
   clans.forEach(clan => {
-    const leagueName = clan.warLeague?.name || 'Unknown'
+    const leagueName = clan.sheetData?.league || clan.warLeague?.name || 'Unknown'
     if (!clansByLeague[leagueName]) {
       clansByLeague[leagueName] = []
     }
@@ -77,62 +84,54 @@ export const filterClansByCapacity = (clans) => {
   Object.keys(clansByLeague).forEach(leagueName => {
     const leagueClans = clansByLeague[leagueName]
     
-    // Sort by "In Use" value (ascending)
+    // Sort by "In Use" value (ascending) - smallest In Use first
     leagueClans.sort((a, b) => {
       const aInUse = a.sheetData?.inUse || 999
       const bInUse = b.sheetData?.inUse || 999
       return aInUse - bInUse
     })
     
-    // Track visible clans in this league and their formats
-    const visibleFormatsInLeague = new Set()
+    // Track the last visible "Lazy" clan for capacity checking  
+    let lastVisibleLazyClan = null
     
-    // Determine which clans to show
+    // Process each clan in order of "In Use"
     for (let i = 0; i < leagueClans.length; i++) {
       const clan = leagueClans[i]
-      const clanFormat = clan.sheetData?.format || 'Unknown'
+      const currentEligible = calculateEligibleMembers(clan.sheetData, clan.memberList)
+      const currentRequired = parseInt(clan.sheetData?.members) || 0
+      const currentFormat = (clan.sheetData?.format || 'Unknown').toLowerCase().trim()
       
-      // Always show the first clan in each league
-      if (i === 0) {
+      // RULE 1: "Serious" format clans are ALWAYS visible (no capacity check)
+      if (currentFormat === 'serious') {
         visibleClans.push(clan)
-        visibleFormatsInLeague.add(clanFormat)
         continue
       }
-
-      // Check if this clan has a different format than all visible clans in this league
-      const hasDifferentFormat = !visibleFormatsInLeague.has(clanFormat)
       
-      if (hasDifferentFormat) {
-        // Always show clans with different formats
+      // RULE 2: First "Lazy" clan in each league is always visible
+      if (currentFormat === 'lazy' && lastVisibleLazyClan === null) {
         visibleClans.push(clan)
-        visibleFormatsInLeague.add(clanFormat)
+        lastVisibleLazyClan = clan
         continue
       }
-
-      // For same format, check if the previous clan with same format is full
-      // Find the last visible clan with the same format
-      const previousSameFormatClan = leagueClans
-        .slice(0, i)
-        .reverse()
-        .find(c => {
-          const format = c.sheetData?.format || 'Unknown'
-          return format === clanFormat && visibleClans.includes(c)
-        })
-
-      if (previousSameFormatClan) {
-        const prevEligible = calculateEligibleMembers(previousSameFormatClan.sheetData, previousSameFormatClan.memberList)
-        const prevRequired = parseInt(previousSameFormatClan.sheetData?.members) || 0
-
-        // Show this clan only if the previous clan with same format is full
+      
+      // RULE 3: For "Lazy" clans, check if previous "Lazy" clan is full
+      if (currentFormat === 'lazy' && lastVisibleLazyClan !== null) {
+        const prevEligible = calculateEligibleMembers(lastVisibleLazyClan.sheetData, lastVisibleLazyClan.memberList)
+        const prevRequired = parseInt(lastVisibleLazyClan.sheetData?.members) || 0
+        
         if (prevEligible >= prevRequired) {
           visibleClans.push(clan)
+          lastVisibleLazyClan = clan // Update to this clan for next comparison
         }
-        // If not full, don't show but continue checking other formats
+        // If not full, clan is hidden (do nothing)
+      } else if (currentFormat !== 'lazy' && currentFormat !== 'serious') {
+        // Unknown format - show it by default
+        visibleClans.push(clan)
       }
     }
   })
 
-  // Sort final result by "In Use" value globally
+  // Sort final result by "In Use" value globally (smallest first)
   visibleClans.sort((a, b) => {
     const aInUse = a.sheetData?.inUse || 999
     const bInUse = b.sheetData?.inUse || 999
@@ -192,8 +191,6 @@ export const getCWLClansFiltered = async () => {
     
     // Cache the result
     cacheService.set(cacheKey, filteredClans, CACHE_TTL.CWL_FILTERED)
-
-    console.log(`🎯 Filtered CWL clans: ${filteredClans.length}/${mergedData.length}`)
     
     return filteredClans
   } catch (error) {
