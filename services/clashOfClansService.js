@@ -1,7 +1,12 @@
 import { Client } from 'clashofclans.js'
+import { cacheService, CACHE_TTL } from './cacheService.js'
 
 // Initialize the Clash of Clans API client
 let client = null
+
+// Rate limiting configuration
+const REQUEST_POOL_SIZE = 5 // Max concurrent requests
+let activeRequests = 0
 
 /**
  * Initialize the CoC API client with email and password
@@ -38,15 +43,21 @@ export const initializeCoCClient = async () => {
  * @returns {Promise<Object>} Clan data
  */
 export const getClanDetails = async (clanTag) => {
+  const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
+  const cacheKey = `clan:${formattedTag}`
+  
+  // Check cache first
+  const cached = cacheService.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+  
   try {
     const cocClient = await initializeCoCClient()
     
     if (!cocClient) {
       throw new Error('CoC API client not initialized')
     }
-
-    // Ensure clan tag has # prefix
-    const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
     
     const clan = await cocClient.getClan(formattedTag)
     
@@ -73,7 +84,7 @@ export const getClanDetails = async (clanTag) => {
       donationsReceived: member.donationsReceived || 0,
     })) || []
     
-    return {
+    const clanData = {
       tag: clan.tag,
       name: clan.name,
       description: clan.description || 'No description available',
@@ -109,6 +120,11 @@ export const getClanDetails = async (clanTag) => {
       warFrequency: clan.warFrequency || 'unknown',
       isWarLogPublic: clan.isWarLogPublic || false,
     }
+    
+    // Cache the result
+    cacheService.set(cacheKey, clanData, CACHE_TTL.CLAN_BASIC)
+    
+    return clanData
   } catch (error) {
     console.error(`Error fetching clan ${clanTag}:`, error.message)
     throw error
@@ -116,7 +132,7 @@ export const getClanDetails = async (clanTag) => {
 }
 
 /**
- * Fetch multiple clans
+ * Fetch multiple clans with intelligent batching
  * @param {Array<string>} clanTags - Array of clan tags
  * @returns {Promise<Array<Object>>} Array of clan data
  */
@@ -130,17 +146,34 @@ export const getMultipleClans = async (clanTags) => {
       return []
     }
 
-    const clanPromises = validTags.map(tag => 
-      getClanDetails(tag).catch(error => {
-        console.error(`Failed to fetch clan ${tag}:`, error.message)
-        return null
-      })
-    )
+    console.log(`📦 Fetching ${validTags.length} clans in batches of ${REQUEST_POOL_SIZE}...`)
     
-    const clans = await Promise.all(clanPromises)
+    // Process in batches to avoid overwhelming the API
+    const results = []
+    for (let i = 0; i < validTags.length; i += REQUEST_POOL_SIZE) {
+      const batch = validTags.slice(i, i + REQUEST_POOL_SIZE)
+      
+      const batchPromises = batch.map(tag => 
+        getClanDetails(tag).catch(error => {
+          console.error(`Failed to fetch clan ${tag}:`, error.message)
+          return null
+        })
+      )
+      
+      const batchResults = await Promise.all(batchPromises)
+      results.push(...batchResults)
+      
+      // Small delay between batches to be nice to the API
+      if (i + REQUEST_POOL_SIZE < validTags.length) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+    }
     
     // Remove null values (failed requests)
-    return clans.filter(Boolean)
+    const successfulClans = results.filter(Boolean)
+    console.log(`✅ Successfully fetched ${successfulClans.length}/${validTags.length} clans`)
+    
+    return successfulClans
   } catch (error) {
     console.error('Error fetching multiple clans:', error)
     throw error
@@ -153,14 +186,21 @@ export const getMultipleClans = async (clanTags) => {
  * @returns {Promise<Object>} Current war data
  */
 export const getCurrentWar = async (clanTag) => {
+  const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
+  const cacheKey = `war:${formattedTag}`
+  
+  // Check cache first
+  const cached = cacheService.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+  
   try {
     const cocClient = await initializeCoCClient()
     
     if (!cocClient) {
       throw new Error('CoC API client not initialized')
     }
-
-    const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
     const war = await cocClient.getClanWar(formattedTag)
     
     // If not in war, return minimal data
@@ -212,6 +252,9 @@ export const getCurrentWar = async (clanTag) => {
       } : null
     }
     
+    // Cache the result
+    cacheService.set(cacheKey, formattedWar, CACHE_TTL.CLAN_WAR)
+    
     return formattedWar
   } catch (error) {
     console.error(`Error fetching war data for clan ${clanTag}:`, error.message)
@@ -225,14 +268,21 @@ export const getCurrentWar = async (clanTag) => {
  * @returns {Promise<Array>} War log data
  */
 export const getWarLog = async (clanTag) => {
+  const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
+  const cacheKey = `warlog:${formattedTag}`
+  
+  // Check cache first
+  const cached = cacheService.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+  
   try {
     const cocClient = await initializeCoCClient()
     
     if (!cocClient) {
       throw new Error('CoC API client not initialized')
     }
-
-    const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
     const warLog = await cocClient.getClanWarLog(formattedTag)
     
     // Format war log according to WarLogClan structure
@@ -271,6 +321,9 @@ export const getWarLog = async (clanTag) => {
       } : null
     }))
     
+    // Cache the result
+    cacheService.set(cacheKey, formattedWarLog, CACHE_TTL.CLAN_WAR_LOG)
+    
     return formattedWarLog
   } catch (error) {
     console.error(`Error fetching war log for clan ${clanTag}:`, error.message)
@@ -284,6 +337,15 @@ export const getWarLog = async (clanTag) => {
  * @returns {Promise<Array>} Capital raid seasons data
  */
 export const getCapitalRaidSeasons = async (clanTag) => {
+  const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
+  const cacheKey = `raids:${formattedTag}`
+  
+  // Check cache first
+  const cached = cacheService.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+  
   try {
     const cocClient = await initializeCoCClient()
     
@@ -291,10 +353,13 @@ export const getCapitalRaidSeasons = async (clanTag) => {
       throw new Error('CoC API client not initialized')
     }
 
-    const formattedTag = clanTag.startsWith('#') ? clanTag : `#${clanTag}`
     const raidSeasons = await cocClient.getClanCapitalRaidSeasons(formattedTag)
+    const result = raidSeasons || []
     
-    return raidSeasons || []
+    // Cache the result
+    cacheService.set(cacheKey, result, CACHE_TTL.CLAN_RAIDS)
+    
+    return result
   } catch (error) {
     console.error(`Error fetching capital raid seasons for clan ${clanTag}:`, error.message)
     throw error

@@ -8,17 +8,22 @@
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
-  "keywords": ["clash-of-clans", "api", "express"],
+  "keywords": [
+    "clash-of-clans",
+    "api",
+    "express"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "clashofclans.js": "^3.3.5",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "node-cache": "^5.1.2",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
   }
 }
-

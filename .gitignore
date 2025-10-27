@@ -59,3 +59,9 @@ temp/
 # Debug
 .vscode-test/
 
+# Documentation files (exclude from repo)
+API_DOCUMENTATION.md
+MIGRATION_GUIDE.md
+IMPLEMENTATION_SUMMARY.md
+# README.md - keep this one if you want it in the repo
+
