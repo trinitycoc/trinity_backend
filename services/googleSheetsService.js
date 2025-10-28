@@ -1,8 +1,8 @@
 import { cacheService, CACHE_TTL } from './cacheService.js'
 
 // Google Sheets CSV URLs
-const CWL_CLANS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTv9TiS1-uWKWghHNDyv1WNpZCPUew08SyzE4AwV5zksRHYdHOz_fcWi0FSKdHeL-Z0IpKNa-nMxEiY/pub?gid=1640581717&single=true&output=csv'
-const TRINITY_CLANS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTv9TiS1-uWKWghHNDyv1WNpZCPUew08SyzE4AwV5zksRHYdHOz_fcWi0FSKdHeL-Z0IpKNa-nMxEiY/pub?gid=419279330&single=true&output=csv'
+const CWL_CLANS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQHg3iIZi_dvJi2MNw92UTErDYEGO3e6RBm1Z8x-ZGzXLEKOg0CV8jcK9rE2_jcKuPR1w2UvdCmQ0ka/pub?gid=1114008336&single=true&output=csv'
+const TRINITY_CLANS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQHg3iIZi_dvJi2MNw92UTErDYEGO3e6RBm1Z8x-ZGzXLEKOg0CV8jcK9rE2_jcKuPR1w2UvdCmQ0ka/pub?gid=1167849602&single=true&output=csv'
 
 /**
  * Parse CSV text to array of objects
