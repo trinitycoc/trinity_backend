@@ -56,7 +56,7 @@ export const calculateEligibleMembers = (sheetData, memberList) => {
  * - Group by Google Sheets league
  * - Sort by "In Use" value within each league (smallest first)
  * - "Serious" format: ALWAYS show (no capacity check)
- * - "Lazy" format: Only show next clan when previous "Lazy" clan is full
+ * - "Lazy" format: Only show next clan when previous "Lazy" clan reaches 90% capacity
  * 
  * Example: Master 2 with In Use: 4 (Lazy), 5 (Lazy), 6 (Lazy)
  * - Show clan 4 (always show first)
@@ -114,12 +114,12 @@ export const filterClansByCapacity = (clans) => {
         continue
       }
       
-      // RULE 3: For "Lazy" clans, check if previous "Lazy" clan is full
+      // RULE 3: For "Lazy" clans, show next when previous reaches 90% of required
       if (currentFormat === 'lazy' && lastVisibleLazyClan !== null) {
         const prevEligible = calculateEligibleMembers(lastVisibleLazyClan.sheetData, lastVisibleLazyClan.memberList)
         const prevRequired = parseInt(lastVisibleLazyClan.sheetData?.members) || 0
         
-        if (prevEligible >= prevRequired) {
+        if (prevRequired > 0 && prevEligible >= Math.ceil(0.9 * prevRequired)) {
           visibleClans.push(clan)
           lastVisibleLazyClan = clan // Update to this clan for next comparison
         }
