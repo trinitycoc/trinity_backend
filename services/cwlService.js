@@ -2,6 +2,9 @@ import { getMultipleClans } from './clashOfClansService.js'
 import { fetchCWLClansDetailsFromSheet } from './googleSheetsService.js'
 import { cacheService, CACHE_TTL } from './cacheService.js'
 
+// Promise cache to prevent concurrent fetches of the same data
+const activeFetches = new Map()
+
 /**
  * Calculate eligible members based on TH requirements
  * @param {Object} sheetData - Clan data from Google Sheets
@@ -142,6 +145,79 @@ export const filterClansByCapacity = (clans) => {
 }
 
 /**
+ * Get all CWL clans with merged data (shared by both filtered and all endpoints)
+ * This is cached separately to avoid duplicate API calls
+ * Uses promise cache to prevent concurrent fetches
+ * @returns {Promise<Array>} All CWL clans with merged data
+ */
+export const getAllCWLClansMerged = async () => {
+  const cacheKey = 'cwl:all-clans-merged'
+  
+  // Check cache first
+  const cached = cacheService.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  // Check if there's already an active fetch for this data
+  if (activeFetches.has(cacheKey)) {
+    return await activeFetches.get(cacheKey)
+  }
+
+  // Create fetch promise
+  const fetchPromise = (async () => {
+    try {
+      // Fetch clan details from Google Sheets
+      const detailsFromSheet = await fetchCWLClansDetailsFromSheet()
+
+      if (detailsFromSheet.length === 0) {
+        throw new Error('No CWL clans found in Google Sheets')
+      }
+
+      // Extract clan tags for API call
+      const clanTags = detailsFromSheet.map(detail => detail.tag)
+
+      // Fetch all CWL clan data from CoC API
+      const fetchedClans = await getMultipleClans(clanTags)
+      
+      if (fetchedClans.length === 0) {
+        throw new Error('No clan data could be fetched from CoC API')
+      }
+
+      // Merge API data with Google Sheets details
+      const mergedData = fetchedClans.map(clan => {
+        const sheetInfo = detailsFromSheet.find(detail => detail.tag === clan.tag)
+        
+        // Calculate eligible members
+        const eligibleMembers = calculateEligibleMembers(sheetInfo, clan.memberList)
+        
+        return {
+          ...clan,
+          sheetData: sheetInfo || null,
+          eligibleMembers
+        }
+      })
+      
+      // Cache the merged data (used by both filtered and all endpoints)
+      cacheService.set(cacheKey, mergedData, CACHE_TTL.CWL_FILTERED)
+      
+      return mergedData
+    } catch (error) {
+      console.error('Error getting all CWL clans merged:', error)
+      throw error
+    } finally {
+      // Remove from active fetches when done
+      activeFetches.delete(cacheKey)
+    }
+  })()
+
+  // Store the promise to prevent duplicate fetches
+  activeFetches.set(cacheKey, fetchPromise)
+  
+  return await fetchPromise
+}
+
+/**
  * Get CWL clans with all data merged and filtered
  * @returns {Promise<Array>} Filtered CWL clans with merged data
  */
@@ -155,41 +231,13 @@ export const getCWLClansFiltered = async () => {
   }
 
   try {
-    // Fetch clan details from Google Sheets
-    const detailsFromSheet = await fetchCWLClansDetailsFromSheet()
-
-    if (detailsFromSheet.length === 0) {
-      throw new Error('No CWL clans found in Google Sheets')
-    }
-
-    // Extract clan tags for API call
-    const clanTags = detailsFromSheet.map(detail => detail.tag)
-
-    // Fetch all CWL clan data from CoC API
-    const fetchedClans = await getMultipleClans(clanTags)
-    
-    if (fetchedClans.length === 0) {
-      throw new Error('No clan data could be fetched from CoC API')
-    }
-
-    // Merge API data with Google Sheets details
-    const mergedData = fetchedClans.map(clan => {
-      const sheetInfo = detailsFromSheet.find(detail => detail.tag === clan.tag)
-      
-      // Calculate eligible members
-      const eligibleMembers = calculateEligibleMembers(sheetInfo, clan.memberList)
-      
-      return {
-        ...clan,
-        sheetData: sheetInfo || null,
-        eligibleMembers
-      }
-    })
+    // Get all merged clans (uses shared cache)
+    const mergedData = await getAllCWLClansMerged()
 
     // Filter clans based on capacity logic
     const filteredClans = filterClansByCapacity(mergedData)
     
-    // Cache the result
+    // Cache the filtered result
     cacheService.set(cacheKey, filteredClans, CACHE_TTL.CWL_FILTERED)
     
     return filteredClans

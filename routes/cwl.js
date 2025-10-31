@@ -1,11 +1,9 @@
 import express from 'express'
 import {
   getCWLClansFiltered,
+  getAllCWLClansMerged,
   getClanEligibleMembers
 } from '../services/cwlService.js'
-import { fetchCWLClansDetailsFromSheet } from '../services/googleSheetsService.js'
-import { getMultipleClans } from '../services/clashOfClansService.js'
-import { calculateEligibleMembers } from '../services/cwlService.js'
 
 const router = express.Router()
 
@@ -15,34 +13,12 @@ router.get('/clans', async (req, res) => {
     const showAll = req.query.all === 'true'
     
     if (showAll) {
-      // Show all clans without filtering
-      const detailsFromSheet = await fetchCWLClansDetailsFromSheet()
-      if (detailsFromSheet.length === 0) {
-        throw new Error('No CWL clans found in Google Sheets')
-      }
-
-      const clanTags = detailsFromSheet.map(detail => detail.tag)
-      const fetchedClans = await getMultipleClans(clanTags)
+      // Show all clans without filtering (uses shared cache)
+      const allClans = await getAllCWLClansMerged()
       
-      if (fetchedClans.length === 0) {
-        throw new Error('No clan data could be fetched from CoC API')
-      }
-
-      // Merge API data with Google Sheets details
-      const mergedData = fetchedClans.map(clan => {
-        const sheetInfo = detailsFromSheet.find(detail => detail.tag === clan.tag)
-        const eligibleMembers = calculateEligibleMembers(sheetInfo, clan.memberList)
-        
-        return {
-          ...clan,
-          sheetData: sheetInfo || null,
-          eligibleMembers
-        }
-      })
-
       return res.json({
-        count: mergedData.length,
-        clans: mergedData,
+        count: allClans.length,
+        clans: allClans,
         filtered: false
       })
     }
