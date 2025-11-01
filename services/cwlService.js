@@ -55,16 +55,58 @@ export const calculateEligibleMembers = (sheetData, memberList) => {
 }
 
 /**
+ * Check if current date/time is within CWL period (1st 1:30 PM IST to 3rd 1:30 PM IST)
+ * During this period, clans are closed for CWL and members might leave
+ * @returns {boolean} True if current time is within CWL period
+ */
+const isCWLPeriod = () => {
+  const now = new Date()
+  
+  // Convert current UTC time to IST (UTC+5:30)
+  // Get UTC time in milliseconds
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000)
+  // Add IST offset (5 hours 30 minutes = 5.5 hours)
+  const istTime = utcTime + (5.5 * 60 * 60 * 1000)
+  
+  // Create a new date object for IST
+  const istNow = new Date(istTime)
+  
+  const currentDate = istNow.getUTCDate()
+  const currentHour = istNow.getUTCHours()
+  const currentMinute = istNow.getUTCMinutes()
+  
+  // Check if current date/time is between start and end
+  if (currentDate === 1) {
+    // On 1st: check if time is >= 1:30 PM IST
+    return currentHour > 13 || (currentHour === 13 && currentMinute >= 30)
+  } else if (currentDate === 2) {
+    // On 2nd: always within period
+    return true
+  } else if (currentDate === 3) {
+    // On 3rd: check if time is <= 1:30 PM IST
+    return currentHour < 13 || (currentHour === 13 && currentMinute <= 30)
+  }
+  
+  return false
+}
+
+/**
  * Filter clans by capacity logic:
  * - Group by Google Sheets league
  * - Sort by "In Use" value within each league (smallest first)
  * - "Serious" format: HIDDEN from frontend (skip these clans)
  * - "Lazy" format: Only show next clan when previous "Lazy" clan reaches 90% capacity
+ * - Special CWL period rule: During CWL period (1st-3rd, 1:30 PM IST), if previous clan is closed,
+ *   show next clan regardless of 90% rule (members may have left after CWL started)
  * 
  * Example: Master 2 with In Use: 4 (Lazy), 5 (Lazy), 6 (Lazy)
  * - Show clan 4 (always show first)
- * - Show clan 5 only when clan 4 is full
- * - Show clan 6 only when clan 5 is full
+ * - Show clan 5 when:
+ *   - Clan 4 reaches 90% capacity (normal rule), OR
+ *   - It's CWL period (1st-3rd, 1:30 PM IST) AND clan 4 is closed
+ * - Show clan 6 when:
+ *   - Clan 5 reaches 90% capacity (normal rule), OR
+ *   - It's CWL period (1st-3rd, 1:30 PM IST) AND clan 5 is closed
  * 
  * @param {Array} clans - Array of clan objects with sheetData
  * @returns {Array} Filtered array of clans to display
@@ -117,15 +159,24 @@ export const filterClansByCapacity = (clans) => {
       }
       
       // RULE 3: For "Lazy" clans, show next when previous reaches 90% of required
+      // OR if it's CWL period and previous clan is closed (CWL has started, members may have left)
       if (currentFormat === 'lazy' && lastVisibleLazyClan !== null) {
         const prevEligible = calculateEligibleMembers(lastVisibleLazyClan.sheetData, lastVisibleLazyClan.memberList)
         const prevRequired = parseInt(lastVisibleLazyClan.sheetData?.members) || 0
         
-        if (prevRequired > 0 && prevEligible >= Math.ceil(0.9 * prevRequired)) {
+        // Check if it's CWL period and previous clan is closed (CWL started)
+        const isDuringCWL = isCWLPeriod()
+        const isPrevClanClosed = lastVisibleLazyClan.type === 'closed'
+        
+        // Show next clan if:
+        // 1. Previous clan reached 90% capacity (normal rule), OR
+        // 2. It's CWL period AND previous clan is closed (CWL has started, next clan should be visible)
+        if ((prevRequired > 0 && prevEligible >= Math.ceil(0.9 * prevRequired)) || 
+            (isDuringCWL && isPrevClanClosed)) {
           visibleClans.push(clan)
           lastVisibleLazyClan = clan // Update to this clan for next comparison
         }
-        // If not full, clan is hidden (do nothing)
+        // If not full and not CWL period with closed previous clan, clan is hidden (do nothing)
       } else if (currentFormat !== 'lazy' && currentFormat !== 'serious') {
         // Unknown format - show it by default
         visibleClans.push(clan)
