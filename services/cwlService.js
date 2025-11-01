@@ -58,7 +58,7 @@ export const calculateEligibleMembers = (sheetData, memberList) => {
  * Filter clans by capacity logic:
  * - Group by Google Sheets league
  * - Sort by "In Use" value within each league (smallest first)
- * - "Serious" format: ALWAYS show (no capacity check)
+ * - "Serious" format: HIDDEN from frontend (skip these clans)
  * - "Lazy" format: Only show next clan when previous "Lazy" clan reaches 90% capacity
  * 
  * Example: Master 2 with In Use: 4 (Lazy), 5 (Lazy), 6 (Lazy)
@@ -104,10 +104,9 @@ export const filterClansByCapacity = (clans) => {
       const currentRequired = parseInt(clan.sheetData?.members) || 0
       const currentFormat = (clan.sheetData?.format || 'Unknown').toLowerCase().trim()
       
-      // RULE 1: "Serious" format clans are ALWAYS visible (no capacity check)
+      // RULE 1: "Serious" format clans are HIDDEN from frontend (skip them)
       if (currentFormat === 'serious') {
-        visibleClans.push(clan)
-        continue
+        continue // Skip serious clans, don't add them to visibleClans
       }
       
       // RULE 2: First "Lazy" clan in each league is always visible
